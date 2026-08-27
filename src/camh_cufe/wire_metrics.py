@@ -13,6 +13,7 @@ from typing import Iterable
 from .protocol_objects import (
     AuthorizationState,
     encode_checkpoint_statement,
+    encode_final_result_statement,
     encode_retained_transition_record,
     encode_state,
     encode_transition_statement,
@@ -103,6 +104,42 @@ def measure_checkpoint_statement(
             history_digest=history_digest,
             history_length=history_length,
             policy_id=policy_id,
+            application_context=application_context,
+        ),
+    )
+
+
+def measure_final_result_statement(
+    *,
+    suite_id: bytes,
+    relation_id: bytes,
+    public_parameters_digest: bytes,
+    final_state: AuthorizationState,
+    dimension: int,
+    final_ciphertext: bytes,
+    function_public_view: bytes,
+    functional_key_public_view: bytes,
+    result_encoding_id: bytes,
+    claimed_result: bytes,
+    history_digest: bytes,
+    history_length: int,
+    application_context: bytes = b"",
+) -> WireSize:
+    return _measurement(
+        "final-result-statement",
+        encode_final_result_statement(
+            suite_id=suite_id,
+            relation_id=relation_id,
+            public_parameters_digest=public_parameters_digest,
+            final_state=final_state,
+            dimension=dimension,
+            final_ciphertext=final_ciphertext,
+            function_public_view=function_public_view,
+            functional_key_public_view=functional_key_public_view,
+            result_encoding_id=result_encoding_id,
+            claimed_result=claimed_result,
+            history_digest=history_digest,
+            history_length=history_length,
             application_context=application_context,
         ),
     )
