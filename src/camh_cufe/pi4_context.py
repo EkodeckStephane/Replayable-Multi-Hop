@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-DOMAIN = b"CAMH-CUFE/PI4/BASES/v1"
+from .domains import PI4_BASES
+
+DOMAIN = PI4_BASES
 
 
 @dataclass(frozen=True)
