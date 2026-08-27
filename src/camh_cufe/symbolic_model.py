@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 
+from .domains import SYMBOLIC_TAG
 from .protocol_objects import AuthorizationState
 
 
@@ -41,7 +42,7 @@ class SymbolicCAMHCUFE:
 
     def h(self, state: AuthorizationState) -> int:
         h = hashlib.sha256()
-        h.update(b"CAMH-CUFE/SYMBOLIC/TAG/v1")
+        h.update(SYMBOLIC_TAG)
         h.update(len(self.tag_key).to_bytes(4, "big"))
         h.update(self.tag_key)
         h.update(len(state.tag).to_bytes(4, "big"))
