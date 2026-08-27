@@ -1,0 +1,129 @@
+"""Canonical CAMH-CUFE protocol statements and history commitments."""
+from __future__ import annotations
+
+import hashlib
+from dataclasses import dataclass
+from typing import Iterable
+
+from .encoding import Field, encode_object, uint32, uint64
+
+OBJ_STATE = 0x1001
+OBJ_ELEMENT_VECTOR = 0x1002
+OBJ_TRANSITION = 0x1003
+OBJ_HISTORY_INIT = 0x1004
+OBJ_HISTORY_LINK = 0x1005
+OBJ_CHECKPOINT = 0x1006
+
+
+@dataclass(frozen=True)
+class AuthorizationState:
+    tag: bytes
+    epoch: int
+
+    def encode(self, *, suite_id: bytes) -> bytes:
+        return encode_state(self, suite_id=suite_id)
+
+
+def _nonempty(value: bytes, name: str) -> bytes:
+    value = bytes(value)
+    if not value:
+        raise ValueError(f"{name} must be non-empty")
+    return value
+
+
+def encode_state(state: AuthorizationState, *, suite_id: bytes) -> bytes:
+    return encode_object(OBJ_STATE, [
+        Field(1, _nonempty(suite_id, "suite_id")),
+        Field(2, _nonempty(state.tag, "tag")),
+        Field(3, uint32(state.epoch)),
+    ])
+
+
+def encode_element_vector(elements: Iterable[bytes]) -> bytes:
+    elements = tuple(bytes(e) for e in elements)
+    if not elements:
+        raise ValueError("element vector must be non-empty")
+    if len(elements) >= 2**16:
+        raise ValueError("too many elements")
+    fields = [Field(1, uint32(len(elements)))]
+    for index, element in enumerate(elements, start=2):
+        if not element:
+            raise ValueError("group element encoding must be non-empty")
+        fields.append(Field(index, element))
+    return encode_object(OBJ_ELEMENT_VECTOR, fields)
+
+
+def encode_transition_statement(
+    *,
+    suite_id: bytes,
+    source: AuthorizationState,
+    destination: AuthorizationState,
+    dimension: int,
+    update_elements: Iterable[bytes],
+) -> bytes:
+    if destination.epoch != source.epoch + 1:
+        raise ValueError("destination epoch must equal source epoch + 1")
+    return encode_object(OBJ_TRANSITION, [
+        Field(1, _nonempty(suite_id, "suite_id")),
+        Field(2, encode_state(source, suite_id=suite_id)),
+        Field(3, encode_state(destination, suite_id=suite_id)),
+        Field(4, uint32(dimension)),
+        Field(5, encode_element_vector(update_elements)),
+    ])
+
+
+def history_init(*, suite_id: bytes, fresh_ciphertext: bytes) -> bytes:
+    body = encode_object(OBJ_HISTORY_INIT, [
+        Field(1, _nonempty(suite_id, "suite_id")),
+        Field(2, _nonempty(fresh_ciphertext, "fresh_ciphertext")),
+    ])
+    return hashlib.sha256(body).digest()
+
+
+def history_link(
+    *,
+    suite_id: bytes,
+    previous_digest: bytes,
+    transition_statement: bytes,
+    source_ciphertext: bytes,
+    destination_ciphertext: bytes,
+    token_signature: bytes,
+) -> bytes:
+    previous_digest = bytes(previous_digest)
+    if len(previous_digest) != 32:
+        raise ValueError("previous_digest must be 32 bytes")
+    body = encode_object(OBJ_HISTORY_LINK, [
+        Field(1, _nonempty(suite_id, "suite_id")),
+        Field(2, previous_digest),
+        Field(3, _nonempty(transition_statement, "transition_statement")),
+        Field(4, _nonempty(source_ciphertext, "source_ciphertext")),
+        Field(5, _nonempty(destination_ciphertext, "destination_ciphertext")),
+        Field(6, _nonempty(token_signature, "token_signature")),
+    ])
+    return hashlib.sha256(body).digest()
+
+
+def encode_checkpoint_statement(
+    *,
+    suite_id: bytes,
+    final_state: AuthorizationState,
+    final_ciphertext: bytes,
+    history_digest: bytes,
+    history_length: int,
+    policy_id: bytes,
+    application_context: bytes = b"",
+) -> bytes:
+    history_digest = bytes(history_digest)
+    if len(history_digest) != 32:
+        raise ValueError("history_digest must be 32 bytes")
+    fields = [
+        Field(1, _nonempty(suite_id, "suite_id")),
+        Field(2, encode_state(final_state, suite_id=suite_id)),
+        Field(3, _nonempty(final_ciphertext, "final_ciphertext")),
+        Field(4, history_digest),
+        Field(5, uint64(history_length)),
+        Field(6, _nonempty(policy_id, "policy_id")),
+    ]
+    if application_context:
+        fields.append(Field(7, bytes(application_context)))
+    return encode_object(OBJ_CHECKPOINT, fields)
