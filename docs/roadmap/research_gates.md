@@ -61,18 +61,20 @@ Required families:
 - [x] baseline adaptive oracle interfaces frozen in `docs/formal/oracle_and_leakage_profile.md`;
 - [x] public leakage profile frozen for the baseline model;
 - [x] public-token (`MH-PUB`) and honest-update (`MH-HU`) exposure profiles distinguished;
-- [x] challenge admissibility rule frozen at model level.
+- [x] challenge admissibility rule frozen at model level;
+- [x] baseline distributed roles/trust boundaries/corruption profiles frozen in `docs/formal/system_threat_model.md`;
+- [x] untrusted-proxy `MH-PUB` profile selected as the intended headline FGCS threat model.
 
-### Still open before complete formal freeze
+### Still open before complete construction freeze
 
 - [ ] notation harmonized across every construction/proof document (`Q` vs legacy/candidate `S`, `level` vs `epoch`);
 - [ ] construction-specific oracle restrictions reconciled with the baseline game without weakening the intended untrusted-proxy model;
 - [ ] functionality/message domains and exact adaptive/selective choices frozen for the retained secure construction;
-- [ ] final corruption model for authority, proxies, auditor/checkpoint issuer, verifier, and consumer frozen.
+- [ ] construction-specific corruption restrictions proven compatible with the baseline distributed threat model.
 
 ## G3 — Security definitions
 
-### Defined at model level
+### Defined at model/reference-protocol level
 
 - [x] exact state-authorization game;
 - [x] explicit composition-authorization game;
@@ -86,12 +88,13 @@ Required families:
 - [x] baseline adaptive multi-hop FE confidentiality experiment (`MH-PUB` / `MH-HU`);
 - [x] sequential-composition security target tied to the accumulated adversarial view;
 - [x] branch-aware challenge-derived ciphertext policy;
-- [x] key-query admissibility designed not to define away key-switch attacks.
+- [x] key-query admissibility designed not to define away key-switch attacks;
+- [x] final-result canonical public statement/transcript/base-binding boundary frozen in `docs/formal/final_result_relation.md`.
 
 ### Open
 
 - [ ] retained construction's exact confidentiality theorem game instantiated with all query bounds;
-- [ ] final-result proof relation (`pi4` or replacement) finalized;
+- [ ] concrete final-result proof witness/relation and soundness theorem finalized, or `pi4` removed;
 - [ ] corruption/accountability games finalized for any quorum/transparency extension retained in the article.
 
 ## G4 — Construction and proofs
@@ -101,7 +104,8 @@ Required families:
 - [x] legacy repeated-update algebraic correctness/telescoping invariant derived;
 - [x] legacy pairing confidentiality path rejected by explicit functional-key switching counterexample;
 - [x] bounded multi-level LWE candidate recurrence and conservative noise-growth risk derived;
-- [x] generic multi-level iO/PTDE/PRF feasibility candidate specified at correctness-sketch level.
+- [x] generic multi-level iO/PTDE/PRF feasibility candidate specified at correctness-sketch level;
+- [x] audit-layer history/checkpoint binding reductions stated conditionally on canonical encoding, collision resistance, token authentication and transition-use soundness.
 
 These checked items are **research findings/candidate analyses**, not secure CAMH-CUFE construction theorems.
 
@@ -115,10 +119,10 @@ These checked items are **research findings/candidate analyses**, not secure CAM
 - [ ] functional-key non-transferability theorem;
 - [ ] replay/state-authorization theorem(s);
 - [ ] path/composition-authorization theorem(s);
-- [ ] history-binding theorem;
-- [ ] checkpoint security theorem;
+- [ ] unconditional/instantiated history-binding theorem with final concrete encodings/hash;
+- [ ] concrete checkpoint security theorem;
 - [ ] `MH-PUB` multi-hop confidentiality/sequential-composition theorem for the intended untrusted-proxy deployment, or architecture/claims narrowed explicitly to `MH-HU`;
-- [ ] final-result binding theorem if a final-result proof remains in scope;
+- [ ] final-result soundness theorem if a final-result proof remains in scope;
 - [ ] assumptions mapped one-to-one to theorem statements;
 - [ ] reduction losses/query bounds stated explicitly.
 
@@ -137,20 +141,24 @@ These checked items are **research findings/candidate analyses**, not secure CAM
 - [x] initial authorization state cryptographically committed by the history root;
 - [x] state/lineage continuity reference verifier implemented;
 - [x] skip/reorder/splice/final-state/final-ciphertext/history-digest substitution tests added;
-- [x] `pi4` verifier-critical bases deterministically derived from authenticated suite context and dimension;
+- [x] `VerifyTransitionUse` hook required so a public hash-chain recomputation cannot substitute for cryptographic transition validation;
+- [x] `pi4` verifier-critical bases deterministically derived from suite, exact public-parameter digest, relation identifier and dimension;
 - [x] caller-substituted `pi4` bases rejected by tests;
+- [x] final reference verifier API exposes no caller-supplied base parameter;
+- [x] canonical final-result statement binds setup, state, ciphertext, function/key public views, result encoding/value, history and application context;
 - [x] canonical checkpoint statement binds final state, ciphertext, history digest, history length, policy and application context;
-- [x] baseline single-honest-auditor checkpoint trust semantics frozen.
+- [x] baseline single-honest-auditor checkpoint trust semantics frozen;
+- [x] typed canonical-wire measurement helpers implemented for state, transition, retained record, checkpoint and final-result statement;
+- [x] CI guard rejects Python-object/pickle/runtime-size paths from protocol metric code.
 
 ### Open before protocol closure
 
 - [ ] complete domain-separation audit of the eventual real cryptographic backend;
 - [ ] canonical encodings for every concrete backend ciphertext, token, functional key, proof, signature/certificate and public parameter object;
 - [ ] strict standards-conformant group/lattice element decoding with subgroup/canonicality checks as applicable;
-- [ ] final `pi4` statement/relation soundness, or removal/replacement of `pi4`;
+- [ ] concrete `pi4` proof relation/soundness, or removal/replacement of `pi4`;
 - [ ] concrete checkpoint signing implementation and security theorem;
-- [ ] canonical wire-size measurement pipeline over real protocol objects;
-- [ ] explicit automated guard showing headline size tables cannot come from `pickle`/Python object serialization.
+- [ ] canonical wire-size measurement over the final real backend objects and network messages.
 
 ## G6 — Implementation validity
 
@@ -160,8 +168,10 @@ These checked items are **research findings/candidate analyses**, not secure CAM
 - [x] exact authorization-graph reference model implemented;
 - [x] retained-history conformance verifier implemented;
 - [x] adversarial tests derived from multiple formal game classes;
+- [x] final-result statement/base substitution regression tests implemented;
 - [x] current CAMH-CUFE reference CI runs on Python 3.11/3.12/3.13;
-- [x] current reference CI has `failed = 0` and `skipped = 0` for the tests presently in scope.
+- [x] current reference CI has `failed = 0` and `skipped = 0` for the tests presently in scope;
+- [x] latest protocol/refactoring tranche executes 71 tests successfully on all three Python versions.
 
 ### Required for scientific implementation validity
 
@@ -192,7 +202,7 @@ Evidence:
 - [ ] non-loopback communication for headline distributed experiment;
 - [ ] TLS/authenticated channels where relevant;
 - [ ] frozen deployment topology;
-- [ ] process/host identities and trust boundaries documented;
+- [ ] deployed process/host identities documented against `docs/formal/system_threat_model.md`;
 - [ ] fault/adversarial injection procedure;
 - [ ] no local symbolic timing promoted to distributed-system evidence.
 
