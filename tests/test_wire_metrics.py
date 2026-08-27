@@ -3,12 +3,14 @@ import unittest
 from camh_cufe.protocol_objects import (
     AuthorizationState,
     encode_checkpoint_statement,
+    encode_final_result_statement,
     encode_retained_transition_record,
     encode_state,
     encode_transition_statement,
 )
 from camh_cufe.wire_metrics import (
     measure_checkpoint_statement,
+    measure_final_result_statement,
     measure_retained_transition,
     measure_state,
     measure_transition,
@@ -70,6 +72,27 @@ class WireMetricTests(unittest.TestCase):
         encoded = encode_checkpoint_statement(**kwargs)
         measured = measure_checkpoint_statement(**kwargs)
         self.assertEqual(measured.byte_length, len(encoded))
+
+    def test_final_result_measurement_is_exact_canonical_length(self):
+        kwargs = dict(
+            suite_id=b"suite",
+            relation_id=b"ipfe-final-v1",
+            public_parameters_digest=b"p" * 32,
+            final_state=AuthorizationState(b"C", 2),
+            dimension=3,
+            final_ciphertext=b"canonical-ct-c",
+            function_public_view=b"canonical-function",
+            functional_key_public_view=b"canonical-fk",
+            result_encoding_id=b"signed-int-be-v1",
+            claimed_result=b"result",
+            history_digest=b"h" * 32,
+            history_length=2,
+            application_context=b"app",
+        )
+        encoded = encode_final_result_statement(**kwargs)
+        measured = measure_final_result_statement(**kwargs)
+        self.assertEqual(measured.byte_length, len(encoded))
+        self.assertEqual(measured.evidence_class, "canonical-wire")
 
     def test_python_runtime_object_size_is_not_an_api(self):
         # The module deliberately has no generic measure_object/pickle path.
