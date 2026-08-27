@@ -14,6 +14,7 @@ OBJ_TRANSITION = 0x1003
 OBJ_HISTORY_INIT = 0x1004
 OBJ_HISTORY_LINK = 0x1005
 OBJ_CHECKPOINT = 0x1006
+OBJ_RETAINED_TRANSITION = 0x1007
 
 
 @dataclass(frozen=True)
@@ -150,3 +151,31 @@ def encode_checkpoint_statement(
     if application_context:
         fields.append(Field(7, bytes(application_context)))
     return encode_object(OBJ_CHECKPOINT, fields)
+
+
+def encode_retained_transition_record(
+    *,
+    suite_id: bytes,
+    transition_statement: bytes,
+    source_ciphertext: bytes,
+    destination_ciphertext: bytes,
+    token_signature: bytes,
+    history_digest: bytes,
+) -> bytes:
+    """Encode one retained lineage record for storage/communication metrics.
+
+    Concrete ciphertext and signature byte strings supplied here must themselves
+    already be canonical encodings from their respective backend/suite.  This
+    function does not legitimize Python-object or pickle serialization.
+    """
+    history_digest = bytes(history_digest)
+    if len(history_digest) != 32:
+        raise ValueError("history_digest must be 32 bytes")
+    return encode_object(OBJ_RETAINED_TRANSITION, [
+        Field(1, _nonempty(suite_id, "suite_id")),
+        Field(2, _nonempty(transition_statement, "transition_statement")),
+        Field(3, _nonempty(source_ciphertext, "source_ciphertext")),
+        Field(4, _nonempty(destination_ciphertext, "destination_ciphertext")),
+        Field(5, _nonempty(token_signature, "token_signature")),
+        Field(6, history_digest),
+    ])
