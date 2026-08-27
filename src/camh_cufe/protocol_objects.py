@@ -15,6 +15,7 @@ OBJ_HISTORY_INIT = 0x1004
 OBJ_HISTORY_LINK = 0x1005
 OBJ_CHECKPOINT = 0x1006
 OBJ_RETAINED_TRANSITION = 0x1007
+OBJ_FINAL_RESULT_STATEMENT = 0x1008
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,13 @@ def _nonempty(value: bytes, name: str) -> bytes:
     value = bytes(value)
     if not value:
         raise ValueError(f"{name} must be non-empty")
+    return value
+
+
+def _digest32(value: bytes, name: str) -> bytes:
+    value = bytes(value)
+    if len(value) != 32:
+        raise ValueError(f"{name} must be 32 bytes")
     return value
 
 
@@ -113,9 +121,7 @@ def history_link(
     destination_ciphertext: bytes,
     token_signature: bytes,
 ) -> bytes:
-    previous_digest = bytes(previous_digest)
-    if len(previous_digest) != 32:
-        raise ValueError("previous_digest must be 32 bytes")
+    previous_digest = _digest32(previous_digest, "previous_digest")
     body = encode_object(OBJ_HISTORY_LINK, [
         Field(1, _nonempty(suite_id, "suite_id")),
         Field(2, previous_digest),
@@ -137,9 +143,7 @@ def encode_checkpoint_statement(
     policy_id: bytes,
     application_context: bytes = b"",
 ) -> bytes:
-    history_digest = bytes(history_digest)
-    if len(history_digest) != 32:
-        raise ValueError("history_digest must be 32 bytes")
+    history_digest = _digest32(history_digest, "history_digest")
     fields = [
         Field(1, _nonempty(suite_id, "suite_id")),
         Field(2, encode_state(final_state, suite_id=suite_id)),
@@ -168,9 +172,7 @@ def encode_retained_transition_record(
     already be canonical encodings from their respective backend/suite.  This
     function does not legitimize Python-object or pickle serialization.
     """
-    history_digest = bytes(history_digest)
-    if len(history_digest) != 32:
-        raise ValueError("history_digest must be 32 bytes")
+    history_digest = _digest32(history_digest, "history_digest")
     return encode_object(OBJ_RETAINED_TRANSITION, [
         Field(1, _nonempty(suite_id, "suite_id")),
         Field(2, _nonempty(transition_statement, "transition_statement")),
@@ -179,3 +181,51 @@ def encode_retained_transition_record(
         Field(5, _nonempty(token_signature, "token_signature")),
         Field(6, history_digest),
     ])
+
+
+def encode_final_result_statement(
+    *,
+    suite_id: bytes,
+    relation_id: bytes,
+    public_parameters_digest: bytes,
+    final_state: AuthorizationState,
+    dimension: int,
+    final_ciphertext: bytes,
+    function_public_view: bytes,
+    functional_key_public_view: bytes,
+    result_encoding_id: bytes,
+    claimed_result: bytes,
+    history_digest: bytes,
+    history_length: int,
+    application_context: bytes = b"",
+) -> bytes:
+    """Encode the complete public statement for a final-result proof.
+
+    The byte strings supplied for ciphertext, function/key public views, and
+    claimed result must already be canonical according to the retained concrete
+    suite.  This envelope freezes *what* a final proof is about; it does not by
+    itself establish proof-system soundness.
+    """
+    if dimension <= 0:
+        raise ValueError("dimension must be positive")
+    public_parameters_digest = _digest32(
+        public_parameters_digest, "public_parameters_digest"
+    )
+    history_digest = _digest32(history_digest, "history_digest")
+    fields = [
+        Field(1, _nonempty(suite_id, "suite_id")),
+        Field(2, _nonempty(relation_id, "relation_id")),
+        Field(3, public_parameters_digest),
+        Field(4, encode_state(final_state, suite_id=suite_id)),
+        Field(5, uint32(dimension)),
+        Field(6, _nonempty(final_ciphertext, "final_ciphertext")),
+        Field(7, _nonempty(function_public_view, "function_public_view")),
+        Field(8, _nonempty(functional_key_public_view, "functional_key_public_view")),
+        Field(9, _nonempty(result_encoding_id, "result_encoding_id")),
+        Field(10, _nonempty(claimed_result, "claimed_result")),
+        Field(11, history_digest),
+        Field(12, uint64(history_length)),
+    ]
+    if application_context:
+        fields.append(Field(13, bytes(application_context)))
+    return encode_object(OBJ_FINAL_RESULT_STATEMENT, fields)
