@@ -36,19 +36,48 @@ class ProtocolObjectTests(unittest.TestCase):
                 update_elements=[b"d0"],
             )
 
+    def test_zero_dimension_rejected(self):
+        with self.assertRaises(ValueError):
+            encode_transition_statement(
+                suite_id=b"toy",
+                source=AuthorizationState(b"A", 1),
+                destination=AuthorizationState(b"B", 2),
+                dimension=0,
+                update_elements=[b"d0"],
+            )
+
+    def test_history_root_binds_initial_authorization_state(self):
+        root = b"fresh-ct-canonical"
+        a0 = history_init(
+            suite_id=b"toy",
+            initial_state=AuthorizationState(b"A", 0),
+            fresh_ciphertext=root,
+        )
+        b0 = history_init(
+            suite_id=b"toy",
+            initial_state=AuthorizationState(b"B", 0),
+            fresh_ciphertext=root,
+        )
+        self.assertNotEqual(a0, b0)
+
     def test_different_paths_have_different_history_commitments(self):
         root = b"fresh-ct-canonical"
-        d0 = history_init(suite_id=b"toy", fresh_ciphertext=root)
+        root_state = AuthorizationState(b"A", 1)
+        d0 = history_init(
+            suite_id=b"toy",
+            initial_state=root_state,
+            fresh_ciphertext=root,
+        )
         ab = encode_transition_statement(
             suite_id=b"toy",
-            source=AuthorizationState(b"A", 1),
+            source=root_state,
             destination=AuthorizationState(b"B", 2),
             dimension=1,
             update_elements=[b"AB"],
         )
         ac = encode_transition_statement(
             suite_id=b"toy",
-            source=AuthorizationState(b"A", 1),
+            source=root_state,
             destination=AuthorizationState(b"C", 2),
             dimension=1,
             update_elements=[b"AC"],
@@ -57,7 +86,7 @@ class ProtocolObjectTests(unittest.TestCase):
             suite_id=b"toy",
             previous_digest=d0,
             transition_statement=ab,
-            source_ciphertext=b"root",
+            source_ciphertext=root,
             destination_ciphertext=b"state-B",
             token_signature=b"sig-ab",
         )
@@ -65,7 +94,7 @@ class ProtocolObjectTests(unittest.TestCase):
             suite_id=b"toy",
             previous_digest=d0,
             transition_statement=ac,
-            source_ciphertext=b"root",
+            source_ciphertext=root,
             destination_ciphertext=b"state-C",
             token_signature=b"sig-ac",
         )
