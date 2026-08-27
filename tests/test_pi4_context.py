@@ -28,24 +28,45 @@ class FakeGroup:
 class Pi4ContextTests(unittest.TestCase):
     def setUp(self):
         self.G = FakeGroup()
+        self.pp = b"p" * 32
+        self.rel = b"ipfe-final-v1"
+
+    def derive(self, dimension=8, suite=b"toy-v1", pp=None, rel=None):
+        return derive_pi4_bases(
+            self.G,
+            dimension,
+            suite_id=suite,
+            public_parameters_digest=self.pp if pp is None else pp,
+            relation_id=self.rel if rel is None else rel,
+        )
 
     def test_derivation_is_deterministic(self):
-        a = derive_pi4_bases(self.G, 8, suite_id=b"toy-v1")
-        b = derive_pi4_bases(self.G, 8, suite_id=b"toy-v1")
+        a = self.derive()
+        b = self.derive()
         self.assertTrue(bases_equal(self.G, a, b))
 
     def test_dimension_is_domain_bound(self):
-        a = derive_pi4_bases(self.G, 8, suite_id=b"toy-v1")
-        b = derive_pi4_bases(self.G, 9, suite_id=b"toy-v1")
+        a = self.derive(8)
+        b = self.derive(9)
         self.assertNotEqual(a.hv, b.hv)
 
     def test_suite_is_domain_bound(self):
-        a = derive_pi4_bases(self.G, 8, suite_id=b"suite-a")
-        b = derive_pi4_bases(self.G, 8, suite_id=b"suite-b")
+        a = self.derive(suite=b"suite-a")
+        b = self.derive(suite=b"suite-b")
+        self.assertNotEqual(a.hv, b.hv)
+
+    def test_public_parameters_are_domain_bound(self):
+        a = self.derive(pp=b"a" * 32)
+        b = self.derive(pp=b"b" * 32)
+        self.assertNotEqual(a.hv, b.hv)
+
+    def test_relation_is_domain_bound(self):
+        a = self.derive(rel=b"relation-a")
+        b = self.derive(rel=b"relation-b")
         self.assertNotEqual(a.hv, b.hv)
 
     def test_mutated_base_is_rejected(self):
-        canonical = derive_pi4_bases(self.G, 4, suite_id=b"toy-v1")
+        canonical = self.derive(4)
         mutated = Pi4Bases(
             Gv=canonical.Gv,
             hv=b"\x00" * 32,
@@ -54,19 +75,33 @@ class Pi4ContextTests(unittest.TestCase):
         )
         with self.assertRaises(ValueError):
             require_canonical_pi4_bases(
-                self.G, mutated, 4, suite_id=b"toy-v1"
+                self.G,
+                mutated,
+                4,
+                suite_id=b"toy-v1",
+                public_parameters_digest=self.pp,
+                relation_id=self.rel,
             )
 
     def test_canonical_base_is_accepted(self):
-        canonical = derive_pi4_bases(self.G, 4, suite_id=b"toy-v1")
+        canonical = self.derive(4)
         returned = require_canonical_pi4_bases(
-            self.G, canonical, 4, suite_id=b"toy-v1"
+            self.G,
+            canonical,
+            4,
+            suite_id=b"toy-v1",
+            public_parameters_digest=self.pp,
+            relation_id=self.rel,
         )
         self.assertTrue(bases_equal(self.G, canonical, returned))
 
     def test_invalid_dimension_rejected(self):
         with self.assertRaises(ValueError):
-            derive_pi4_bases(self.G, 0, suite_id=b"toy-v1")
+            self.derive(0)
+
+    def test_bad_public_parameters_digest_rejected(self):
+        with self.assertRaises(ValueError):
+            self.derive(pp=b"short")
 
 
 if __name__ == "__main__":
