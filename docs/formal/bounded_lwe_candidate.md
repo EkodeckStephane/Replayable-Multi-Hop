@@ -126,28 +126,30 @@ E_{2,\ell+1}=E_{2,\ell}+\Delta_{2,\ell}^T E_{1,\ell}+f_{2,\ell}.
 
 Equations (3)-(4) establish **algebraic multi-hop correctness form**, but not a usable correctness bound.
 
-## 4. Conservative norm recurrence
+## 4. Conservative operator-norm recurrence
 
 Let
 
 \[
-a_\ell=\|E_{1,\ell}\|,
+a_\ell=\|E_{1,\ell}\|_2,
 \qquad
-b_\ell=\|E_{2,\ell}\|,
+b_\ell=\|E_{2,\ell}\|_2.
 \]
 
-and suppose, uniformly over the path,
+For propagation of a vector through a matrix we need the spectral/operator norm \(s_1(\cdot)\), not merely the maximum-column norm used by Cini et al. in parts of their notation. Suppose, uniformly over the path,
 
 \[
-\|\Delta_{1,\ell}\|\le R_1,
+s_1(\Delta_{1,\ell})\le R_1,
 \qquad
-\|\Delta_{2,\ell}\|\le R_2,
+s_1(\Delta_{2,\ell})\le R_2,
 \]
 
+and
+
 \[
-\|f_{1,\ell}\|\le F_1,
+\|f_{1,\ell}\|_2\le F_1,
 \qquad
-\|f_{2,\ell}\|\le F_2.
+\|f_{2,\ell}\|_2\le F_2.
 \]
 
 Then
@@ -178,27 +180,101 @@ b_\ell\le b_0+R_2\sum_{j=0}^{\ell-1}a_j+\ell F_2.
 \tag{8}
 \]
 
-Thus, under a direct repeated application of the one-hop mechanism, the **standard conservative correctness bound grows geometrically in the update depth whenever \(R_1>1\)**.
+Thus, under a direct repeated application of the one-hop mechanism, the **standard conservative correctness bound grows geometrically in the update depth whenever the relevant operator-norm bound exceeds one**.
 
 This is a bound on the naive composition, not an impossibility theorem. A tighter distributional analysis, a refresh mechanism, or a different update construction may substantially change the conclusion.
 
-## 5. Relation to the published one-hop bounds
+## 5. Structured product of the published Delta_1 form
 
-Cini et al. bound the relevant token norms by
+The one-hop construction uses
 
 \[
-\|\Delta_1\|\le 2m\rho,
-\qquad
-\|\Delta_2\|\le \sqrt{2}\,m\rho,
+\Delta_{1,j}=\begin{pmatrix}
+I & X_j\\
+0 & Y_j
+\end{pmatrix}.
 \]
 
-under their Gaussian/trapdoor parameter requirements, and additionally bound the functional-key matrix norm by \(2m\rho_2\).
+For \(L\) successive transitions, define
 
-Their one-hop correctness theorem selects \(q\), \(\rho\), \(\rho_2\), \(\sigma\), \(\mu\), and \(\tau\) so that the **single updated-ciphertext** decryption error stays below the decoding threshold.
+\[
+P_L=\Delta_{1,0}\Delta_{1,1}\cdots\Delta_{1,L-1}.
+\]
 
-These published inequalities cannot simply be reused for depth \(L>1\), because after the first hop the error entering the next update is already the transformed error of (3), rather than a fresh-encryption error distributed as in the one-hop proof.
+Direct block multiplication gives
 
-## 6. Main feasibility question
+\[
+P_L=
+\begin{pmatrix}
+I & Z_L\\
+0 & Y_0Y_1\cdots Y_{L-1}
+\end{pmatrix},
+\tag{9}
+\]
+
+where
+
+\[
+Z_L=X_{L-1}+X_{L-2}Y_{L-1}+\cdots+X_0Y_1Y_2\cdots Y_{L-1}.
+\tag{10}
+\]
+
+Hence the block structure does not automatically collapse the accumulated transformation: it explicitly contains products of the \(Y_j\) matrices. If \(s_1(X_j)\le R_X\) and \(s_1(Y_j)\le R_Y\), then
+
+\[
+s_1(Y_0\cdots Y_{L-1})\le R_Y^L
+\]
+
+and, for \(R_Y\ne1\),
+
+\[
+s_1(Z_L)\le R_X\frac{R_Y^L-1}{R_Y-1}.
+\tag{11}
+\]
+
+These are worst-case upper bounds, not claims that the sampled matrices necessarily attain them. They nevertheless show that the published block structure alone does not provide a depth-independent noise bound.
+
+## 6. Correct interpretation of the published one-hop matrix bounds
+
+Cini et al. define \(\|R\|\) for a matrix as the Euclidean norm of its longest column and separately denote the spectral norm by \(s_1(R)\). Their one-hop correctness proof gives
+
+\[
+\|\Delta_1\|_{\mathrm{col}}\le 2m\rho,
+\qquad
+\|\Delta_2\|_{\mathrm{col}}\le \sqrt{2}\,m\rho,
+\]
+
+and
+
+\[
+\|Z\|_{\mathrm{col}}\le 2m\rho_2.
+\]
+
+For an \(r\times c\) matrix, the generic conversion
+
+\[
+s_1(R)\le\|R\|_F\le\sqrt{c}\,\|R\|_{\mathrm{col}}
+\]
+
+gives, for the published dimensions,
+
+\[
+s_1(\Delta_1)\le 2\sqrt{2}\,m^{3/2}\rho
+\tag{12}
+\]
+
+and
+
+\[
+s_1(\Delta_2)\le \sqrt{2}\,m^{3/2}\rho.
+\tag{13}
+\]
+
+These conversions are deliberately conservative. A practical multi-hop construction requires substantially tighter distribution-aware bounds or an explicit refresh mechanism; simply substituting the one-hop maximum-column bounds into an operator recurrence would be mathematically incorrect.
+
+The published one-hop theorem selects \(q\), \(\rho\), \(\rho_2\), \(\sigma\), \(\mu\), and \(\tau\) so that the **single updated-ciphertext** decryption error stays below the decoding threshold. Those inequalities cannot simply be reused at depth \(L>1\), because after the first hop the error entering the next update is already the transformed error of (3), rather than a fresh-encryption error distributed as in the one-hop proof.
+
+## 7. Main feasibility question
 
 The bounded construction is useful only if we can produce a depth-dependent parameterization satisfying simultaneously:
 
@@ -216,7 +292,15 @@ A formal correctness target is
 
 for the exact decryption error expression of the generalized scheme, not merely for \(a_L\) or \(b_L\) separately.
 
-## 7. GO/NO-GO gate
+## 8. Theoretical depth interpretation
+
+The recurrence does not rule out every bounded-depth construction. For a fixed constant \(L\), parameters that grow polynomially as a function of the security parameter may still be theoretically possible even when the exponent depends on \(L\).
+
+However, a claim of **arbitrary or polynomially growing multi-hop depth** would require substantially stronger control: a factor behaving like \(R_1^L\) cannot be treated as harmless when \(L\) itself grows with the security parameter.
+
+Accordingly, the initial concrete target is explicitly **bounded-depth CAMH-CUFE**. Any unbounded-hop claim is prohibited unless a different construction/proof eliminates this dependence.
+
+## 9. GO/NO-GO gate
 
 ### GO for a practical bounded-LWE instantiation
 
@@ -239,14 +323,14 @@ Abandon direct repeated composition if:
 
 A NO-GO result does **not** invalidate CAMH-CUFE as a model. It means the concrete instantiation must switch to a refreshed/re-randomized lattice design, a construction inspired by newer ciphertext-updatable ABE/PE techniques, or a theoretical generic construction while retaining a smaller practical instantiation.
 
-## 8. Immediate proof obligations
+## 10. Immediate proof obligations
 
 1. Derive the exact level-indexed decryption equation and full error term.
-2. Bound the products of the structured matrices \(\Delta_{1,0}\cdots\Delta_{1,L-1}\), exploiting their block structure rather than relying only on generic spectral-norm multiplication.
+2. Obtain distribution-aware bounds for products of the structured \(\Delta_{1,j}\), rather than relying only on generic operator-norm products.
 3. Determine whether the one-hop `NoiseGen`/smudging mechanism can be generalized to re-randomize accumulated error at every level without breaking correctness or security.
 4. Define and prove functional-key non-transferability for the candidate matrices.
 5. Compare the construction technically with Schädlich et al. (SCN 2026) before claiming that this is the appropriate lattice route.
 
-## 9. Claim policy
+## 11. Claim policy
 
 Until these obligations close, the manuscript may say only that a **bounded multi-level LWE construction is under investigation**. It must not state that Cini's practical scheme composes across multiple updates.
