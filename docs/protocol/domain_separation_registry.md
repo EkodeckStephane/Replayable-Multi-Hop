@@ -29,6 +29,7 @@ Canonical protocol objects also carry distinct 16-bit object-type identifiers in
 | history root | `0x1004` |
 | history link | `0x1005` |
 | checkpoint statement | `0x1006` |
+| retained transition record | `0x1007` |
 
 Object-type separation complements, rather than replaces, cryptographic domain separation. History digests therefore hash a canonical typed object under a dedicated history-purpose label.
 
@@ -41,6 +42,23 @@ suite_id || exact initial authorization state || canonical fresh ciphertext
 ```
 
 The initial state is included even if a concrete ciphertext encoding also carries the tag/level. This avoids making audit binding depend on an implicit parser invariant of a future backend.
+
+## Retained-record and size semantics
+
+A retained transition record has a canonical envelope containing:
+
+```text
+suite_id
+transition_statement
+source_ciphertext
+destination_ciphertext
+token_signature
+rolling_history_digest
+```
+
+The nested ciphertext/signature values must themselves already be canonical bytes defined by the retained concrete suite. The record encoder therefore standardizes framing/storage but does **not** make arbitrary Python serialization a protocol encoding.
+
+`src/camh_cufe/wire_metrics.py` measures only outputs of typed canonical encoders. Headline size evidence must never use `pickle`, `repr`, `sys.getsizeof`, or in-memory Python object graphs as substitutes for wire bytes.
 
 ## Audit rule
 
