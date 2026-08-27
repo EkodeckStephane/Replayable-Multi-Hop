@@ -13,13 +13,15 @@ multi-hop(1).zip
 SHA-256: 10fd79055167864b9fc08edbe798e0c6406074de1b42ed0141346aae64bdd000
 ```
 
-A SHA-256 manifest was also computed over the 48 files under the legacy `vcufe/`, `scripts/`, and `tests/` trees before modification.
+A source-only SHA-256 manifest was computed over the 32 non-bytecode files under the legacy `vcufe/`, `scripts/`, and `tests/` trees before modification. Generated `__pycache__` files are excluded.
 
-Manifest SHA-256:
+Source manifest SHA-256:
 
 ```text
-2279ad6cd5a0601532e46b46cba4248452c616d592abad481a74e3573e1036a9
+c98994426894d64d1ff43966058af9e78cadf6090a5f84a22a04f5b874e0fba3
 ```
+
+The per-file hashes are recorded in `legacy/source_manifest.sha256`.
 
 ## Legacy evidence boundary
 
