@@ -4,7 +4,6 @@ from dataclasses import replace
 
 from camh_cufe.audit_history import (
     HistoryVerificationError,
-    RetainedTransition,
     make_retained_transition,
     verify_retained_history,
 )
@@ -86,6 +85,16 @@ class AuditHistoryTests(unittest.TestCase):
             token_signature=toy_sign(stmt_bc),
         )
 
+        # This set stands in for a real backend VerifyTransition relation. It is
+        # deliberately independent of the public history digest.
+        self.valid_transition_uses = {
+            (self.root, self.r1.transition_statement, self.ct_b),
+            (self.ct_b, self.r2.transition_statement, self.ct_c),
+        }
+
+    def verify_transition_use(self, source_ct, statement, destination_ct):
+        return (source_ct, statement, destination_ct) in self.valid_transition_uses
+
     def verify(self, records=None, **kwargs):
         if records is None:
             records = (self.r1, self.r2)
@@ -96,6 +105,7 @@ class AuditHistoryTests(unittest.TestCase):
             records=records,
             authorization_graph=self.graph,
             verify_token_signature=toy_verify,
+            verify_transition_use=self.verify_transition_use,
             **kwargs,
         )
 
@@ -163,6 +173,23 @@ class AuditHistoryTests(unittest.TestCase):
         with self.assertRaises(HistoryVerificationError):
             self.verify(records=(self.r1, other_r2))
 
+    def test_arbitrary_destination_with_recomputed_public_digest_rejected(self):
+        # A valid state-global token signature plus a freshly recomputed rolling
+        # digest must not authenticate an arbitrary destination ciphertext.
+        forged = make_retained_transition(
+            suite_id=SUITE,
+            previous_digest=self.r1.history_digest,
+            source=self.B1,
+            destination=self.C2,
+            dimension=2,
+            update_elements=(b"bc0", b"bc1"),
+            source_ciphertext=self.ct_b,
+            destination_ciphertext=b"attacker-chosen-ct-C2",
+            token_signature=self.r2.token_signature,
+        )
+        with self.assertRaises(HistoryVerificationError):
+            self.verify(records=(self.r1, forged))
+
     def test_final_ciphertext_substitution_rejected(self):
         with self.assertRaises(HistoryVerificationError):
             self.verify(expected_final_ciphertext=b"substituted-final")
@@ -206,6 +233,7 @@ class AuditHistoryTests(unittest.TestCase):
                 records=(self.r1, self.r2),
                 authorization_graph=graph,
                 verify_token_signature=toy_verify,
+                verify_transition_use=self.verify_transition_use,
             )
 
     def test_nonzero_root_epoch_rejected(self):
@@ -217,6 +245,7 @@ class AuditHistoryTests(unittest.TestCase):
                 records=(),
                 authorization_graph=AuthorizationGraph(),
                 verify_token_signature=toy_verify,
+                verify_transition_use=lambda *_: True,
             )
 
 
