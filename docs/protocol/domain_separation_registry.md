@@ -8,14 +8,14 @@ The executable source of truth is `src/camh_cufe/domains.py`.
 
 | Purpose | Domain label | Status |
 |---|---|---|
-| pi4 commitment-base derivation | `CAMH-CUFE/PI4/BASES/v1` | implemented |
+| pi4 commitment-base derivation | `CAMH-CUFE/PI4/BASES/v1` | implemented; setup/relation/dimension bound |
 | history-root commitment | `CAMH-CUFE/HISTORY/INIT/v1` | implemented |
 | history-link commitment | `CAMH-CUFE/HISTORY/LINK/v1` | implemented |
 | symbolic tag scalar | `CAMH-CUFE/SYMBOLIC/TAG/v1` | implemented; test oracle only |
 | real-backend state hash | `CAMH-CUFE/REAL/STATE/v1` | reserved |
 | real-backend token identifier | `CAMH-CUFE/REAL/TOKEN-ID/v1` | reserved |
 | checkpoint signature statement | `CAMH-CUFE/CHECKPOINT/SIGN/v1` | reserved until signer implementation |
-| final-result proof statement | `CAMH-CUFE/PI4/STATEMENT/v1` | reserved until proof relation freezes |
+| final-result proof transcript | `CAMH-CUFE/PI4/STATEMENT/v1` | implemented framing; proof soundness open |
 
 ## Canonical-object separation
 
@@ -30,6 +30,7 @@ Canonical protocol objects also carry distinct 16-bit object-type identifiers in
 | history link | `0x1005` |
 | checkpoint statement | `0x1006` |
 | retained transition record | `0x1007` |
+| final-result proof statement | `0x1008` |
 
 Object-type separation complements, rather than replaces, cryptographic domain separation. History digests therefore hash a canonical typed object under a dedicated history-purpose label.
 
@@ -59,6 +60,36 @@ rolling_history_digest
 The nested ciphertext/signature values must themselves already be canonical bytes defined by the retained concrete suite. The record encoder therefore standardizes framing/storage but does **not** make arbitrary Python serialization a protocol encoding.
 
 `src/camh_cufe/wire_metrics.py` measures only outputs of typed canonical encoders. Headline size evidence must never use `pickle`, `repr`, `sys.getsizeof`, or in-memory Python object graphs as substitutes for wire bytes.
+
+## Final-result proof context
+
+The final-result statement object binds:
+
+```text
+suite_id
+relation_id
+public_parameters_digest
+exact final authorization state
+dimension
+canonical final ciphertext
+canonical function public view
+canonical functional-key public view
+result encoding identifier
+canonical claimed result
+history digest
+history length
+optional application context
+```
+
+Verifier-critical `pi4` bases are derived under `CAMH-CUFE/PI4/BASES/v1` from:
+
+```text
+suite_id || public_parameters_digest || relation_id || dimension
+```
+
+using fixed/length-delimited framing. The final reference verifier has no caller-supplied base parameter. The separate `CAMH-CUFE/PI4/STATEMENT/v1` label frames the canonical statement before it is handed to the eventual concrete proof verifier.
+
+This closes context binding at the reference-protocol level only. It does not establish zero knowledge, proof soundness, or correctness of the claimed FE output.
 
 ## Audit rule
 
