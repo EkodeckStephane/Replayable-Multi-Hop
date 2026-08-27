@@ -1,9 +1,10 @@
 """Reference verifier for CAMH-CUFE retained linear histories.
 
 This module checks canonical statement reconstruction, exact authorization-state
-continuity, ciphertext continuity, rolling-history commitments, and an injected
-token-signature predicate.  It is a conformance/reference layer, not a proof of
-cryptographic unforgeability or CUFE confidentiality.
+continuity, ciphertext continuity, rolling-history commitments, an injected
+token-signature predicate, and an injected cryptographic transition-use
+predicate. It is a conformance/reference layer, not a proof of cryptographic
+unforgeability or CUFE confidentiality.
 """
 from __future__ import annotations
 
@@ -25,6 +26,7 @@ class HistoryVerificationError(ValueError):
 
 
 TokenSignatureVerifier = Callable[[bytes, bytes], bool]
+TransitionUseVerifier = Callable[[bytes, bytes, bytes], bool]
 
 
 @dataclass(frozen=True)
@@ -73,9 +75,9 @@ def make_retained_transition(
 ) -> RetainedTransition:
     """Build one canonical retained record after a token has been authenticated.
 
-    This helper does not create a signature.  The caller supplies the signature
-    over the canonical transition statement according to the selected token
-    authentication mechanism.
+    This helper does not create a signature and does not check that the supplied
+    destination ciphertext is a valid cryptographic update. Those checks belong
+    to the authority/backend workflow and to `verify_retained_history`.
     """
     elements = tuple(bytes(x) for x in update_elements)
     statement = encode_transition_statement(
@@ -114,6 +116,7 @@ def verify_retained_history(
     records: Iterable[RetainedTransition],
     authorization_graph: AuthorizationGraph,
     verify_token_signature: TokenSignatureVerifier,
+    verify_transition_use: TransitionUseVerifier,
     expected_final_state: AuthorizationState | None = None,
     expected_final_ciphertext: bytes | None = None,
     expected_history_digest: bytes | None = None,
@@ -124,16 +127,25 @@ def verify_retained_history(
     - the root must be a canonical level-0 fresh state;
     - every transition must be an exact issued authorization edge;
     - the retained transition statement must equal canonical reconstruction;
-    - the state and ciphertext outputs of one record must be the inputs of the
-      next record exactly;
-    - the injected token-signature verifier must accept each statement;
+    - the token authenticator must accept the canonical statement;
+    - the backend transition-use verifier must establish that the displayed
+      destination ciphertext is a valid result for the displayed source and
+      canonical transition material;
+    - state and ciphertext outputs must chain exactly;
     - every rolling history digest is recomputed and compared;
     - optional displayed final claims are checked exactly.
+
+    `verify_transition_use(source_ciphertext, transition_statement,
+    destination_ciphertext)` is intentionally injected. The current reference
+    layer cannot substitute a metadata/hash check for the concrete CUFE update
+    relation.
     """
     if initial_state.epoch != 0:
         raise HistoryVerificationError("fresh retained history must start at epoch 0")
     if not callable(verify_token_signature):
         raise TypeError("verify_token_signature must be callable")
+    if not callable(verify_transition_use):
+        raise TypeError("verify_transition_use must be callable")
 
     current_state = initial_state
     current_ciphertext = bytes(fresh_ciphertext)
@@ -187,6 +199,14 @@ def verify_retained_history(
         if not verify_token_signature(canonical_statement, record.token_signature):
             raise HistoryVerificationError(
                 f"record {index}: token authentication failed"
+            )
+        if not verify_transition_use(
+            record.source_ciphertext,
+            canonical_statement,
+            record.destination_ciphertext,
+        ):
+            raise HistoryVerificationError(
+                f"record {index}: cryptographic transition use failed verification"
             )
 
         try:
