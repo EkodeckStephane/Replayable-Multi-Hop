@@ -4,95 +4,183 @@
 
 ## 1. Scientific object
 
-**Composable Auditable Multi-Hop Ciphertext-Update Functional Encryption (CAMH-CUFE)** extends ciphertext-updatable functional encryption from a single authorized ciphertext update to a sequentially composable state evolution.
+**Composable Auditable Multi-Hop Ciphertext-Update Functional Encryption (CAMH-CUFE)** extends tag-based ciphertext-updatable functional encryption from a single authorized ciphertext update to an explicitly authorized sequence of level-aware state transitions with an authenticated audit history.
 
 The starting point is CUFE as defined by Cini, Ramacher, Slamanig, Striecks, and Tairi, where a ciphertext can be updated from tag `t` to tag `t'` once and already-updated ciphertexts are intentionally excluded from further updates (Journal of Cryptology 37, Art. 8, DOI: 10.1007/s00145-023-09486-y).
 
-CAMH-CUFE does not treat repeated calls to a one-hop `Update` algorithm as sufficient. Multi-hop evolution is a separate security object because an adversary may observe, replay, reorder, splice, fork, skip, or combine state transitions.
+CAMH-CUFE does not treat repeated calls to a one-hop `Update` algorithm as sufficient. Multi-hop evolution is a separate security object because:
 
-## 2. State model
+- repeated updates change the valid state space and adversarial view;
+- public update material must not switch functional keys;
+- tag-only transition graphs may compose in unintended ways;
+- an adversary may replay, reorder, splice, fork, skip, or combine transition evidence.
 
-A ciphertext state at hop `i` is modeled as
+## 2. Two-layer state model
 
-```text
-S_i = (tag_i, epoch_i, C_i, h_i)
-```
+CAMH-CUFE distinguishes the **cryptographic authorization state** from the **auditable lineage state**.
+
+### 2.1 Cryptographic authorization state
+
+At hop `i`, define
+
+\[
+Q_i=(t_i,\ell_i),
+\]
 
 where:
 
-- `tag_i` identifies the current CUFE authorization tag/domain;
-- `epoch_i` is a monotone state coordinate used to distinguish repeated tag names and stale transitions;
-- `C_i` is the current ciphertext payload;
-- `h_i` is a cryptographic commitment to the authenticated history prefix ending at `S_i`.
+- `t_i` is the visible CUFE tag/domain;
+- `l_i` is a monotone cryptographic level/epoch.
 
-A valid path is
+The same visible tag at two levels is a different authorization state:
+
+\[
+(t,\ell)\ne(t,\ell').
+\]
+
+An update token is **state-global**: a token for
+
+\[
+Q_i\rightarrow Q_{i+1}
+\]
+
+may legitimately update multiple ciphertexts that are genuinely in the exact source state `Q_i`. It is not inherently bound to one ciphertext instance.
+
+### 2.2 Auditable lineage state
+
+For one ciphertext lineage, define
+
+\[
+S_i=(Q_i,C_i,h_i,\mathsf{lid}),
+\]
+
+where:
+
+- `Q_i` is the cryptographic authorization state;
+- `C_i` is the current ciphertext payload;
+- `h_i` commits to the authenticated history prefix;
+- `lid` is a lineage identifier or equivalent canonical lineage-binding value used by the audit layer.
+
+The exact representation of `lid` is an implementation/protocol choice; it must not be silently imported into the cryptographic update-token semantics.
+
+A valid audited path is
 
 ```text
 S_0 --Delta_0,1--> S_1 --Delta_1,2--> ... --Delta_(k-1,k)--> S_k
 ```
 
-The tag sequence may revisit a tag name only if the security model explicitly permits cycles; the state remains distinct because the epoch and history commitment differ.
+with exact authorization-state continuity
 
-## 3. Syntax
+\[
+Q_{i+1}^{\text{output}}=Q_{i+1}^{\text{next-source}}.
+\]
 
-A CAMH-CUFE scheme for functionality family `F` consists of PPT algorithms:
+## 3. Explicit / opt-in composability
+
+CAMH-CUFE does not define composition by visible-tag equality.
+
+For example, issuing
+
+\[
+(A,0)\rightarrow(B,1)
+\]
+
+and independently issuing
+
+\[
+(B,0)\rightarrow(C,1)
+\]
+
+does **not** authorize
+
+\[
+(A,0)\rightarrow(B,1)\rightarrow(C,2).
+\]
+
+To authorize that second hop, the authority must explicitly issue an edge whose exact source state is `(B,1)`, e.g.
+
+\[
+(B,1)\rightarrow(C,2).
+\]
+
+Thus multi-hop reachability is opt-in at the state level rather than an automatic transitive closure of tag names.
+
+See `docs/formal/explicit_composability_semantics.md`.
+
+## 4. Syntax
+
+A CAMH-CUFE scheme for functionality family `F` consists of PPT algorithms plus an authenticated audit layer.
 
 ### Setup
 
 ```text
-Setup(1^lambda, F) -> (mpk, msk)
+Setup(1^lambda, F, Lmax) -> (mpk, msk)
 ```
 
-Creates public and secret system parameters, including all parameters needed to verify transitions. Verifiers must not accept unauthenticated proof bases or protocol parameters supplied ad hoc by an untrusted caller.
+Creates public and secret system parameters and, for bounded constructions, the supported maximum update depth `Lmax`.
+
+Verifiers must not accept unauthenticated proof bases or protocol parameters supplied ad hoc by an untrusted caller.
 
 ### KeyGen
 
 ```text
-KeyGen(msk, f, tag, epoch_policy) -> sk_f
+KeyGen(msk, f, Q) -> sk_f,Q
 ```
 
-Derives a functional key. The exact binding between the functional key and state coordinates is construction-specific and must be defined in the instantiation.
+where `Q=(tag,level)` or where the concrete construction defines an equivalent state-compatibility relation.
+
+A retained construction must prove functional-key non-transferability across public update transitions. API metadata checks are not sufficient.
 
 ### Enc
 
 ```text
-Enc(mpk, x, tag_0) -> S_0
+Enc(mpk, x, tag_0) -> (Q_0, C_0)
 ```
 
-Creates a fresh ciphertext state with canonical initial epoch and initial history commitment.
+Creates a fresh ciphertext in canonical initial state
+
+\[
+Q_0=(tag_0,0).
+\]
+
+The audit layer then initializes `S_0` with canonical lineage/history data.
 
 ### TokGen
 
 ```text
-TokGen(msk, S_meta, tag_next) -> Delta_i,i+1
+TokGen(msk, Q_src, Q_dst) -> Delta_Qsrc,Qdst
 ```
 
-Generates an authorization token for exactly one transition. `S_meta` contains the source state coordinates required to bind the token to its intended source.
+Generates an authorization token for exactly one **state-global** transition.
 
-At minimum, the authenticated transition statement should bind:
+At minimum, its authenticated/public transition description binds:
 
 ```text
-protocol-domain || version || source-tag || source-epoch ||
-destination-tag || destination-epoch || relevant-public-parameters
+protocol-domain || version ||
+source-tag || source-level ||
+destination-tag || destination-level ||
+construction/suite parameters || token identifier/digest
 ```
 
-and any construction-specific proof statement.
+The token does not become ciphertext-specific merely because the audit history later records which ciphertext used it.
 
 ### Update
 
 ```text
-Update(mpk, S_i, Delta_i,i+1) -> S_(i+1) or bottom
+Update(mpk, Q_i, C_i, Delta_Qi,Qj) -> (Q_j, C_j) or bottom
 ```
 
-Checks source-state binding, performs the cryptographic ciphertext update, advances the epoch, and derives the next history commitment.
+Checks/enforces exact source-state compatibility in the cryptographic construction and performs the ciphertext update.
+
+Changing only unauthenticated metadata while leaving the cryptographic payload applicable is not sufficient realization of state binding.
 
 ### VerifyTransition
 
 ```text
-VerifyTransition(mpk, S_i, Delta_i,i+1, S_(i+1)) -> {0,1}
+VerifyTransition(mpk, S_i, Delta_i,j, S_j) -> {0,1}
 ```
 
-Publicly checks one transition.
+Publicly checks one **lineage-specific audited use** of a state-global transition token. It verifies the cryptographic state transition plus the required ciphertext/history bindings.
 
 ### VerifyHistory
 
@@ -100,7 +188,7 @@ Publicly checks one transition.
 VerifyHistory(mpk, S_0, transcript, S_k) -> {0,1}
 ```
 
-Independently replays and validates the complete authenticated path from an accepted starting state to the displayed final state.
+Independently replays and validates the complete authenticated path from an accepted starting lineage state to the displayed final state.
 
 ### Certify
 
@@ -123,25 +211,63 @@ Verifies that the accepted checkpoint authority/quorum certified the stated fina
 ### Dec
 
 ```text
-Dec(sk_f, S_i) -> f(x) or bottom
+Dec(sk_f,Q, Q_i, C_i) -> f(x) or bottom
 ```
 
 Returns the functional output only when the functional-key/state compatibility relation defined by the CAMH-CUFE instantiation is satisfied.
 
-## 4. Sequential composability target
+## 5. Correctness target
 
-A CAMH-CUFE construction is *sequentially update-composable* only if a ciphertext resulting from any valid accepted prefix of updates remains a valid input to the next authorized update while preserving the defined functional and security properties under adaptive interaction.
+For every honestly generated authorized path
 
-The research goal is therefore stronger than syntactic closure of `Update`:
+\[
+Q_0\to Q_1\to\cdots\to Q_k,
+\]
+
+and compatible functional key `sk_f,Qk`,
+
+\[
+\mathsf{Dec}(sk_{f,Q_k},Q_k,C_k)=f(x)
+\]
+
+except with negligible probability.
+
+For lattice instantiations this requires a depth-dependent decryption-error theorem. Syntactic successful execution is insufficient.
+
+## 6. Sequential composability target
+
+A CAMH-CUFE construction is *sequentially update-composable* only if a ciphertext resulting from any valid accepted prefix of updates remains a valid input to the next **explicitly authorized level-compatible update** while preserving the defined functional and security properties under adaptive interaction.
+
+The research goal is stronger than syntactic closure of `Update`:
 
 ```text
 valid output of Update_i
-        + valid authorization Delta_i,i+1
-        + adversarially observable previous history
+        + exact compatible authorization Delta_i,i+1
+        + adversarially observable previous view/history
         -> secure valid input/output relation for Update_(i+1)
 ```
 
-## 5. Verification semantics
+In particular, composition must preserve functional-key separation; a public update token must not become a function-key update mechanism.
+
+## 7. Required security classes
+
+At minimum, the retained model/construction must address:
+
+- multi-hop functional consistency;
+- exact state-transition authorization;
+- explicit composition authorization;
+- functional-key non-transferability;
+- multi-hop confidentiality;
+- stale replay and rollback;
+- skip/reorder integrity;
+- lineage splice/fork integrity;
+- history-commitment binding;
+- checkpoint forgery/state binding;
+- final-result proof binding if `pi4` or an equivalent proof remains in scope.
+
+Exact games are maintained in `docs/formal/security_games.md`.
+
+## 8. Verification semantics
 
 CAMH-CUFE intentionally distinguishes two evidence regimes.
 
@@ -159,27 +285,40 @@ CAMH-CUFE intentionally distinguishes two evidence regimes.
 
 The experimental paper must report this as a trust/performance trade-off, not as equivalence between a certificate and an independently verified history.
 
-## 6. Required construction theorem
+## 9. Construction program
 
-The desired result is a theorem of the following form, with assumptions made construction-specific rather than hidden:
+Two construction tracks are currently under investigation and must remain clearly separated.
 
-```text
-one-step update security
-+ functional-encryption security
-+ transition authentication
-+ collision-resistant history commitment
-+ canonical injective serialization
-+ [additional proof-system assumptions]
--------------------------------------------------
-=> defined CAMH-CUFE multi-hop guarantees
-```
+### Generic/theoretical track
 
-Whether this can be obtained as a generic compiler is an open proof obligation. The repository must not claim a generic compiler until the reduction is complete.
+A bounded multi-level iO/PTDE/PRF construction generalizing the architecture of Cini et al. See `docs/formal/generic_io_multilevel_candidate.md`.
 
-## 7. Immediate implementation obligations
+### Concrete/practical track
+
+A bounded multi-level lattice/IPFE construction. Its feasibility depends on simultaneous closure of depth-dependent noise growth and functional-key non-transferability. See:
+
+- `docs/formal/bounded_lwe_candidate.md`;
+- `docs/formal/lwe_key_noise_coupling.md`.
+
+The legacy pairing prototype is excluded from confidentiality claims because it admits a confirmed public-token functional-key switching attack. See `docs/formal/legacy_key_switch_attack.md`.
+
+## 10. Required theorem program
+
+No generic-compiler theorem is currently claimed.
+
+The desired scientific result is a set of construction-specific theorems showing that the retained instantiations realize the CAMH-CUFE games under explicit assumptions. At minimum:
+
+1. correctness / functional consistency;
+2. key non-transferability;
+3. sequential confidentiality/composition under the defined oracle model;
+4. state/path authorization;
+5. history and checkpoint binding under standard authentication/hash assumptions.
+
+## 11. Immediate implementation obligations
 
 1. Replace ambiguous concatenation with canonical length-delimited serialization.
 2. Authenticate or deterministically derive every verifier-critical public base/statement component.
 3. Separate symbolic/deterministic test backends from cryptographic performance evidence.
 4. Ensure official CI executes all required tests with `failed = 0` and `skipped = 0`.
 5. Define a canonical wire encoding before making protocol-size/compactness claims.
+6. Add regression tests for legitimate same-state token reuse and rejected wrong-level composition.
