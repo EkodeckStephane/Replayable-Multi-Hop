@@ -8,6 +8,12 @@ Security must be defined over **state-transition histories**, not inferred from 
 
 The adversary may interact adaptively with key, token, encryption, update, and verification interfaces subject to the restrictions required by the confidentiality definition.
 
+### State-global transition semantics
+
+Unless a different construction is explicitly defined, an update token authorizes a transition between **public cryptographic states**, not one ciphertext instance. Thus a token for `S -> S'` may legitimately update multiple valid ciphertexts currently in `S`.
+
+Ciphertext/lineage identity is introduced by the **audit-history layer** to prevent history splicing and false provenance claims. It must not be silently turned into a token restriction absent from the cryptographic construction.
+
 ## 2. Correctness properties
 
 ### Functional correctness
@@ -32,13 +38,15 @@ Every honestly generated sequence of accepted transitions is accepted by `Verify
 
 Every certificate generated after an accepted history audit is accepted by `VerifyCheckpoint` under the corresponding trust policy.
 
-## 3. History-integrity games
+## 3. History-integrity and state-authorization games
 
 ### G-Replay: stale-token replay resistance
 
 Goal of the adversary: make a token authorized for an earlier state/epoch validate against a later state for which that transition was not authorized.
 
 Win condition: an unauthorized stale transition is accepted.
+
+Applying a state-global token to another valid ciphertext that is genuinely in the authorized source state is **not** a replay attack.
 
 ### G-Rollback: rollback resistance
 
@@ -56,9 +64,9 @@ Goal: permute individually valid transitions so that an invalid path is accepted
 
 ### G-Splice: cross-history splice resistance
 
-Goal: combine a valid prefix from one ciphertext history with a valid suffix from another history and obtain acceptance.
+Goal: combine a valid prefix from one ciphertext lineage with a valid suffix from another lineage and obtain acceptance as one history.
 
-The challenge is important even if both histories use identical tag names.
+This is an **audit/provenance** property. It remains meaningful even though the underlying update token is state-global.
 
 ### G-Fork: prefix/fork consistency
 
@@ -66,11 +74,13 @@ Goal: create conflicting accepted descendants from a context in which the policy
 
 The exact property depends on whether the system intends to allow authorized branching. If branching is legitimate, the game must instead enforce explicit branch identities and prevent implicit history equivalence.
 
-### G-CrossState: source-state substitution resistance
+### G-StateAuthorization: wrong-source-state resistance
 
-Goal: apply an otherwise valid update authorization to a different ciphertext or source state that shares some public coordinates.
+Goal: use a valid token for `S -> S'` to transform a ciphertext whose authenticated cryptographic source state is not `S`, and have that transformation accepted as authorized.
 
-This game determines which ciphertext/state identifiers must be authenticated by the transition statement.
+The source state includes every coordinate that is security-relevant to transition authorization, such as tag and monotone level/epoch.
+
+**Non-goal:** preventing the same state-global token from updating two distinct ciphertexts that are both legitimately in `S`.
 
 ### G-HistoryBinding: history-commitment binding
 
@@ -83,6 +93,28 @@ Reduction target: collision resistance plus unambiguous/canonical encoding, unle
 ### G-MH-FunctionalConsistency
 
 Authorized repeated updates must preserve the intended plaintext/function relation. The output after any valid path must remain the defined functional result rather than a path-dependent transformed message, unless path-dependent functionality is explicitly part of the scheme.
+
+### G-KeyNonTransferability
+
+This game is mandatory because the supplied legacy pairing prototype fails it.
+
+The adversary receives the public parameters, permitted public update material, and one or more functional keys valid at states allowed by the experiment. It wins if it constructs, for a state where it was not entitled to the corresponding functional capability:
+
+1. a valid target-state functional key;
+2. an algebraically equivalent representation of that key; or
+3. any surrogate procedure that computes a forbidden functional value on target-state ciphertexts with non-negligible advantage.
+
+The game must test **decryption capability**, not byte equality with an authority-issued key.
+
+For a transition `S -> S'`, a minimal regression instance asks whether
+
+```text
+(sk_f,S, Delta_S->S', f, mpk)
+```
+
+enables deriving target-state capability for `f` beyond what is allowed by the confidentiality game.
+
+Any concrete construction that fails this game is disqualified from supporting CAMH-CUFE confidentiality claims, even if an API signature check rejects the transformed object.
 
 ### G-MH-Confidentiality
 
@@ -97,6 +129,7 @@ Open questions to resolve before theorem statement:
 3. Are forks allowed for challenge ciphertexts?
 4. What leakage is inherent in public tags, epochs, path length, and history commitments?
 5. Does checkpoint issuance reveal only already-public state, or additional audit metadata?
+6. Which combinations of source-state keys, target-state keys, and corrupted update tokens are valid without making the challenge trivial?
 
 ### G-SequentialComposition
 
@@ -105,6 +138,8 @@ This is the central composability property.
 For any adaptively selected valid accepted prefix `P_i`, the security of the next authorized transition must hold in the environment containing the adversary's complete view of `P_i`.
 
 A proof must explain why security does not silently rely on `S_i` being a fresh encryption.
+
+Sequential composition is not established merely by passing functional correctness after several updates. It requires that the adversarial view accumulated over the prefix does not create a new forbidden capability, including key switching.
 
 ## 5. Checkpoint games
 
@@ -137,30 +172,34 @@ A single signature alone does not prove that the issuer performed a correct audi
 | Property | Candidate assumptions / dependencies | Status |
 |---|---|---|
 | Functional correctness | underlying CUFE/IPFE correctness + update algebra | OPEN |
-| Multi-hop functional consistency | induction over update path + construction invariant | OPEN |
-| Replay resistance | source epoch/state binding + signature/unforgeability | OPEN |
+| Multi-hop functional consistency | induction over update path + construction invariant + depth-dependent noise bound | OPEN |
+| State authorization / stale replay | state/epoch binding + construction-specific transition validity | OPEN |
 | Rollback resistance | monotone authenticated epoch + accepted-root/current-state policy | OPEN |
 | Reorder/skip resistance | linked history commitment + transition source/destination binding | OPEN |
-| Splice resistance | ciphertext/state identity binding + history commitment | OPEN |
+| Splice resistance | lineage-bound history links + history commitment | OPEN |
 | History binding | collision resistance + canonical serialization | OPEN |
-| Multi-hop confidentiality | underlying CUFE security + new composition reduction | HIGH-RISK OPEN |
+| Functional-key non-transferability | construction-specific reduction; legacy pairing scheme is a confirmed FAIL | HIGH-RISK OPEN |
+| Multi-hop confidentiality | underlying/new CUFE security + new composition reduction + key non-transferability | HIGH-RISK OPEN |
 | Checkpoint forgery | signature/threshold signature security | OPEN |
 | Checkpoint state binding | unforgeability + canonical encoding | OPEN |
 | Final-result binding | construction-specific proof soundness + statement binding | HIGH-RISK OPEN |
 
 ## 7. Experimental derivation
 
-The adversarial campaign should instantiate at least one executable test per security class, including:
+The adversarial campaign should instantiate at least one executable regression/test per applicable security class, including:
 
 ```text
-old-token replay
+old-token use on a later epoch
 wrong source epoch
 wrong source tag
+legitimate same-token use on two ciphertexts in the same source state (must succeed)
 skip a hop
 reorder two hops
-splice two histories
+splice two lineages
 replace final ciphertext
 replace history digest
+functional-key switching attempt using public update material
+surrogate target-state decryption attempt
 reuse checkpoint on another state
 modify checkpoint context
 insufficient/forged quorum (if quorum checkpoints are implemented)
