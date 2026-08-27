@@ -2,163 +2,199 @@
 
 > Status: provisional. No priority claim (`first`, `novel`, `state of the art`) is authorized until the SOTA matrix is complete and independently checked.
 
-## Central claim under investigation
+## Central research target
 
-**CAMH-CUFE studies sequential composability for the tag-based ciphertext-updatable functional-encryption (CUFE) model across multiple authorized state transitions, with explicit security over functional-key non-transferability and the resulting update path, and with two deliberately separated verification semantics: independently replayable history verification and trust-explicit compact checkpoint certification.**
+**CAMH-CUFE studies controlled sequential composition of tag-changing ciphertext updates in functional encryption. It refines the CUFE authorization state from a tag `t` to a product state `(t, level)` so that repeated tag changes compose only along explicitly issued exact state edges; it additionally requires functional-key non-transferability across public update material and binds each ciphertext lineage to an independently replayable authenticated history, with trust-explicit compact checkpoint certification as a separate evidence regime.**
 
-This wording is deliberately scoped. It does **not** claim that updatable FE, repeated execution over updated encrypted state, multi-hop ciphertext-updatable fine-grained encryption, multi-hop re-encryption, ciphertext evolution, verifiability, state chaining, signed checkpoints, or witness/quorum checkpointing are new in isolation.
+This is a research target, not yet a theorem or priority claim.
+
+## Why the wording is deliberately narrow
+
+The following ingredients already exist and are **not** claimed as new in isolation:
+
+- repeated ciphertext updates and epoch-indexed update tokens in Updatable Encryption;
+- Updatable Functional Encryption and generic cryptography-with-updates constructions;
+- multi-hop ciphertext-updatable ABE/PE;
+- multi-hop re-encryption and ciphertext evolution;
+- functional proxy re-encryption;
+- verifiable multi-hop PRE;
+- composable updatable encryption;
+- state chains, authenticated logs, signed checkpoints, consistency proofs, and witness/quorum checkpoints.
+
+The candidate contribution is the exact **CUFE function-output security object and its controlled composition semantics**, not a collection of these known mechanisms.
 
 ## Critical prior-art boundaries
 
-### 1. The Cini et al. CUFE abstraction is intentionally one-update
+### 1. Cini-style CUFE is intentionally one-update
 
-Cini et al. define tag-based CUFE so that a fresh ciphertext may be updated once from tag `t` to `t'`; updating an already-updated ciphertext is excluded by the intended correctness/security model (Journal of Cryptology 37, Article 8; DOI: 10.1007/s00145-023-09486-y).
+Cini et al., *(Inner-Product) Functional Encryption with Updatable Ciphertexts*, Journal of Cryptology 37, Article 8 (DOI: 10.1007/s00145-023-09486-y), define tag-based CUFE and intentionally restrict a ciphertext to one tag-changing update.
 
-They also explicitly identify unintended **function-key switching** by an update token as a security concern. This is now a mandatory security boundary for CAMH-CUFE.
+Their motivation gives the precise policy-composition problem that CAMH-CUFE targets: if tokens for `t -> t'` and `t' -> t''` automatically compose, ciphertexts originally under `t` may become movable to `t''` even when this transitive permission was never intended. They also explicitly identify update-token **function-key switching** as a security concern.
 
-Therefore, **multi-hop tag-update CUFE** is not obtained merely by restating the published syntax with a larger hop counter: the valid state space, token use, functional-key security, and adversarial interaction model must change.
+CAMH-CUFE therefore must solve both:
 
-### 2. Updatable functional encryption already predates CUFE
+1. controlled authorization of repeated tag-changing transitions; and
+2. preservation of functional-key separation while transition material is public/exposed as permitted by the game.
 
-Arriaga, Iovino, and Tang define **Updatable Functional Encryption (UFE)** for RAM programs (Mycrypt 2016; DOI: 10.1007/978-3-319-61273-7_17). Their abstraction explicitly envisions tokens that can update encrypted memory/ciphertext over which subsequent tokens can execute.
+### 2. Epoch-indexed repeated updates are standard in Updatable Encryption
 
-Ananth, Cohen, and Jain develop **Cryptography with Updates** (EUROCRYPT 2017; DOI: 10.1007/978-3-319-56614-6_15), using updatable randomized encodings to generically obtain updatable counterparts of primitives including functional encryption.
+Updatable Encryption already models ciphertexts and tokens by epochs `e -> e+1`, and a ciphertext can be sequentially updated across many epochs. Ciphertext-independent UE may use one epoch token to update all ciphertexts of the source epoch.
 
-**Forbidden novelty statements:**
+Therefore:
+
+> `level`, `epoch`, monotone update counters, and exact epoch transitions are not novelty claims.
+
+The role of `(tag, level)` in CAMH-CUFE is more specific: it refines **tag-based CUFE policy reachability**, so equality of an intermediate visible tag does not by itself authorize composition of two tag-changing permissions.
+
+### 3. Updatable Functional Encryption predates CUFE
+
+Arriaga, Iovino, and Tang define **Updatable Functional Encryption (UFE)** for RAM programs (Mycrypt 2016; DOI: 10.1007/978-3-319-61273-7_17). Their abstraction allows tokens to update encrypted memory/ciphertext on which other tokens can subsequently execute.
+
+Ananth, Cohen, and Jain, **Cryptography with Updates** (EUROCRYPT 2017; DOI: 10.1007/978-3-319-56614-6_15), give generic transformations toward updatable cryptographic primitives, including functional-encryption-related objects.
+
+Forbidden statements:
 
 > We introduce repeated updates in functional encryption.
 
 > We are the first to make functional encryption updatable.
 
-The defensible distinction must be specific to **Cini-style tag-changing CUFE semantics**, repeated authorized tag/state transitions, functional-key non-transferability under public update material, compositional FE security, and audit evidence over the transition path.
+### 4. Multi-hop ciphertext-updatable ABE/PE exists
 
-### 3. Multi-hop ciphertext-updatable ABE/PE now exists
+Schädlich, Scheu-Hachtel, Tairi, and Wang, **Ciphertext-Updatable Attribute-Based and Predicate Encryption from Lattices** (SCN 2026 / IACR ePrint 2026/1045), provide ciphertext-updatable ABE/PE and explicitly extend to multi-hop and an unbounded-token setting.
 
-Schädlich, Scheu-Hachtel, Tairi, and Wang define ciphertext-updatable ABE and predicate encryption from lattices and explicitly extend their constructions to **multi-hop** and an **unbounded-token setting** (SCN 2026 / IACR ePrint 2026/1045).
-
-**Forbidden novelty statements:**
+Forbidden statement:
 
 > We introduce the first multi-hop ciphertext-updatable fine-grained encryption scheme.
 
-> Repeated ciphertext updating for policy/predicate-aware public-key encryption is new.
+The required distinction is FE **function-output semantics**, functional-key security across update states, controlled tag-level CUFE composition, and path audit/certification.
 
-CAMH-CUFE must distinguish FE **function-output semantics**, security of functional keys across update states, Cini-style tag-changing CUFE, and path-aware audit/certification from ABE/PE access/decryption semantics.
+### 5. Multi-hop re-encryption and functional PRE are established
 
-### 4. Multi-hop re-encryption alone is not new
+Chandran et al. study multi-hop re-encryption and functional re-encryption (PKC 2014; DOI: 10.1007/978-3-642-54631-0_6). Liang et al. define DFA-based functional PRE (IEEE TIFS 2014; DOI: 10.1109/TIFS.2014.2346023). Yao et al. explicitly study multi-hop ciphertext evolution in PRE (IEEE TIFS 2023; DOI: 10.1109/TIFS.2023.3282577).
 
-Chandran et al. already study multi-hop re-encryption and functional re-encryption (PKC 2014; DOI: 10.1007/978-3-642-54631-0_6). Yao et al. explicitly study multi-hop ciphertext evolution in proxy re-encryption (IEEE TIFS 2023; DOI: 10.1109/TIFS.2023.3282577).
-
-**Forbidden novelty statement:**
+Forbidden statement:
 
 > We introduce multi-hop ciphertext evolution.
 
-### 5. Functional proxy re-encryption already exists
+### 6. Verifiable multi-hop PRE exists
 
-Liang et al. define DFA-based functional proxy re-encryption (IEEE TIFS 2014; DOI: 10.1109/TIFS.2014.2346023).
+Cai et al. publish a verifiable and fair registered attribute-based multi-hop PRE construction with NIZK and a zkSNARK alternative (IEEE TIFS 2026; DOI: 10.1109/TIFS.2026.3711852).
 
-CAMH-CUFE must explain the distinction between:
-
-- PRE/functional-PRE transformation and delegation semantics; and
-- FE function-output semantics under repeatedly updated CUFE tags/states.
-
-### 6. Verifiable multi-hop PRE now exists
-
-Cai et al. publish a verifiable and fair registered attribute-based multi-hop PRE scheme with verification mechanisms including NIZK and a zkSNARK alternative (IEEE TIFS 2026; DOI: 10.1109/TIFS.2026.3711852).
-
-**Forbidden novelty statement:**
+Forbidden statement:
 
 > We are the first to provide verifiable multi-hop encrypted-data transformation.
 
-The defensible distinction must instead be established at the level of CUFE composability, FE semantics, functional-key security, path-aware transition security, replayable authenticated history, and checkpoint semantics.
-
-### 7. Composable updatable encryption exists
+### 7. Composable UE exists
 
 Levy-dit-Vehel and Roméas give a composable treatment of updatable encryption in Constructive Cryptography (arXiv:2204.11653).
 
-Use of **composable** in CAMH-CUFE therefore requires an explicit composition definition and proof. It cannot mean only that the implementation accepts an updated ciphertext as the next input.
+Accordingly, `composable` in CAMH-CUFE must be backed by an explicit security definition/reduction. It cannot mean only that `Update` accepts its own output as a later input.
 
-### 8. Signed checkpoints, consistency proofs, and witness quorums are not new
+### 8. Checkpoints and transparency mechanisms are established
 
-Transparency-log systems already use signed compact checkpoints, append-only consistency proofs, and witness cosignatures/quorums to reduce split-view/equivocation risk.
+Signed checkpoints, append-only consistency proofs, witness cosignatures/quorums, and authenticated state chains are existing techniques.
 
-**Forbidden novelty statements:**
+Forbidden statements:
 
 > We introduce cryptographic checkpoints.
 
 > We introduce quorum-signed checkpoints.
 
-CAMH-CUFE's possible contribution is instead the **formal placement of checkpoint certification inside a CUFE multi-hop audit model**, with a precise statement of what the checkpoint does and does not prove about omitted ciphertext-update transitions.
+The possible contribution is the formal placement of checkpoint certification inside a CAMH-CUFE history model, with a precise boundary between **independent path replay** and **trust-based certification of a previously audited state**.
 
-## Confirmed negative result that constrains the new construction
+## Confirmed negative result that constrains construction design
 
-The legacy pairing prototype is **not a secure CUFE instantiation**. For a function vector `v`, a holder of a source-state functional key can combine its public group element with the public transition-token components to derive exactly the corresponding target-state key group element. This was reproduced against the supplied implementation and follows directly from the construction algebra.
+The supplied legacy pairing prototype is **not a secure CUFE instantiation**. A source-state functional-key group element plus public update-token components linearly derives the target-state functional-key group element for the same function vector. The attack was reproduced against the supplied code and follows directly from the algebra.
 
 Consequences:
 
-- signatures/tag metadata in the API do not repair the cryptographic relation;
-- the legacy pairing backend may remain a correctness/audit baseline only;
-- every new concrete CAMH-CUFE construction must establish **functional-key non-transferability across public update transitions** before any confidentiality/composability claim is allowed.
+- API signatures/tag metadata do not repair the cryptographic capability;
+- the legacy backend is retained only as correctness/audit evidence;
+- every retained construction must prove **functional-key non-transferability** before supporting confidentiality or composability claims.
 
 See `docs/formal/legacy_key_switch_attack.md`.
 
 ## Candidate scientific contributions
 
-### C1 — Multi-hop tag-update CUFE syntax and security model
+### C1 — Controlled tag-level composition semantics
 
-Define a stateful extension of the Cini-style CUFE abstraction in which an already-updated ciphertext can become a legitimate source for a later authorized tag/state transition, with explicit lineage, epoch, and path semantics.
+Define the cryptographic authorization state as
 
-**Required evidence:** complete formal syntax + threat model + comparison showing how it differs from UFE, generic updatable cryptography, multi-hop CU-ABE/PE, and PRE.
+\[
+Q=(t,\ell)
+\]
+
+and require exact state continuity for composition. Thus
+
+\[
+(A,0)\to(B,1)
+\]
+
+and
+
+\[
+(B,0)\to(C,1)
+\]
+
+do **not** compose. The authority must explicitly issue
+
+\[
+(B,1)\to(C,2)
+\]
+
+to permit the second hop for a ciphertext that reached `B` through the first transition.
+
+This uses an epoch-like coordinate, which is known in UE, for the specific purpose of controlling **CUFE tag-policy reachability**.
+
+**Required evidence:** formal `G-CompositionAuthorization`, construction-level state binding, and SOTA falsification against UE/CU-ABE/PE/PRE models.
 
 ### C2 — Functional-key non-transferability across update states
 
-Define and prove that public transition material and a functional key valid at one state do not enable derivation of the corresponding key, equivalent decryption capability, or useful surrogate at a later state beyond what the security game explicitly permits.
+Define and prove that permitted public transition material and a functional key at one state do not create unauthorized target-state functional capability.
 
-**Required evidence:** security game + reduction. The confirmed legacy key-switch attack is the falsifying regression case.
+**Required evidence:** security game + reduction. The legacy key-switch attack is the mandatory negative regression.
 
-### C3 — Sequential CUFE update composability
+### C3 — Sequential CUFE security after adversarial prefixes
 
-Define and prove that the security of a next authorized CUFE transition is maintained after an adversarially observable valid prefix, rather than assuming the input is a fresh encryption.
+Define and prove security of a next authorized CUFE transition after an adversarially observable valid prefix, without relying on the current ciphertext being a fresh encryption.
 
-**Required evidence:** composition theorem/reduction. This remains the highest-value and highest-risk claim.
+**Required evidence:** a construction-specific composition/confidentiality theorem with explicit oracle restrictions and proof loss.
 
-### C4 — Path-aware transition security
+### C4 — Path-aware lineage integrity
 
-Formalize replay, rollback, skip, reorder, splice, fork/cross-history substitution, and history-binding properties for repeated tag-changing CUFE updates.
+Separate state-global cryptographic authorization from lineage-specific evidence. Formalize stale replay, rollback, skip, reorder, splice, fork, and history-binding attacks over authenticated histories.
 
-**Required evidence:** games and reductions. Executable adversarial tests are supporting implementation evidence only.
+**Required evidence:** games/reductions plus executable conformance tests.
 
-### C5 — Dual verification semantics for CAMH-CUFE histories
+### C5 — Dual verification semantics
 
 Formalize:
 
-1. full replay verification of every authenticated ciphertext-update transition; and
-2. compact certification of an already-audited final state under an explicit checkpoint trust policy.
+1. independent replay of every authenticated update in a lineage; and
+2. compact trust-explicit certification of an already-audited final state.
 
-**Required evidence:** definitions that prevent checkpoint certification from being described as an independent succinct proof of omitted hops; comparison with transparency-log checkpoint/witness semantics.
+A checkpoint must not be described as an independent succinct proof of omitted hops.
 
-### C6 — Concrete CUFE/IPFE instantiation
+### C6 — Two construction tracks
 
-Instantiate the model over a concrete ciphertext-updatable inner-product FE construction or a carefully justified compatible construction.
+- **Generic/theoretical:** bounded multi-level iO/PTDE/PRF construction, retained only if its security proof closes.
+- **Concrete/practical:** bounded lattice/IPFE construction, retained only if depth-dependent correctness/noise and functional-key non-transferability both close.
 
-**Required evidence:** exact mapping from generic properties to construction assumptions; explicit proof that update material does not switch functional keys; depth-dependent correctness/noise analysis for any multi-hop lattice construction. No proof may silently iterate a one-hop theorem outside its security experiment.
+### C7 — Distributed FGCS realization
 
-### C7 — Distributed-system realization and evaluation
+Evaluate the retained practical construction across independent authority/update/audit/verifier/consumer roles using a real cryptographic backend, canonical wire sizes, distributed measurements, paired statistics, adversarial tests, and ablations.
 
-Evaluate CAMH-CUFE as secure encrypted-data state evolution across distributed authority/update/audit/verifier roles.
-
-**Required evidence:** real cryptographic backend, independent processes/hosts, canonical wire sizes, scalability, repeated-measures statistics, adversarial campaign, and ablations.
-
-## Central novelty candidate after current SOTA review
+## Central novelty candidate after the current SOTA pass
 
 The strongest claim currently worth attempting is:
 
-> **CAMH-CUFE extends one-update tag-based CUFE into a stateful multi-hop model that explicitly preserves functional-key separation across public update transitions, defines security over adversarially observable transition prefixes and authenticated update paths, and separates independent path replay from trust-explicit certification of an already-audited state.**
+> **CAMH-CUFE formalizes controlled multi-hop composition for tag-changing CUFE by combining exact tag-level state authorization with functional-key non-transferability and security over adversarially observable update prefixes, while attaching lineage-specific replayable audit evidence and a separately trust-scoped checkpoint regime.**
 
-This is a **research target**, not yet a theorem. It survives only if C2 (key non-transferability), C3 (sequential composition/confidentiality), and C4 (path security) can be proved and the remaining SOTA review does not find an equivalent prior construction.
+This remains provisional. It survives only if the construction/security proof closes and the final SOTA review does not find a materially equivalent FE function-output model.
 
 ## Claim language policy
 
-### Allowed before exhaustive SOTA closure
+### Allowed before exhaustive closure
 
 - `we define`
 - `we study`
@@ -166,7 +202,8 @@ This is a **research target**, not yet a theorem. It survives only if C2 (key no
 - `we provide`
 - `we formalize`
 - `our evaluation measures`
-- `to our knowledge` only after documented final search and verification
+
+`to our knowledge` is allowed only after documented final search and verification.
 
 ### Prohibited until verified
 
@@ -177,20 +214,22 @@ This is a **research target**, not yet a theorem. It survives only if C2 (key no
 - `unprecedented`
 - `first updatable FE`
 - `first multi-update FE`
+- `first level-aware update scheme`
 - `first multi-hop ciphertext-updatable fine-grained encryption`
 - `first cryptographic checkpoint`
-- `fully composable` unless the exact composition theorem supports the qualifier
-- `constant-time verification` unless complexity and measured implementation evidence both justify the statement
+- `fully composable` unless the theorem supports that exact qualifier
+- `constant-time verification` unless both asymptotic and measured evidence justify it
 
-## Falsification conditions for the central novelty
+## Falsification conditions
 
-The central novelty must be revised or abandoned if the SOTA review finds prior work that already provides, for tag-based CUFE or a materially equivalent FE function-output model, substantially the same combination of:
+The central novelty must be narrowed or abandoned if prior work is found that already provides, for tag-based CUFE or a materially equivalent FE function-output model, substantially the same combination of:
 
 1. repeated adaptive tag-changing ciphertext updates;
-2. a security definition explicitly covering already-updated ciphertexts as later update sources;
-3. FE function-output semantics after arbitrary valid update prefixes;
+2. exact state-aware authorization that prevents unintended transitive composition of tag permissions;
+3. FE outputs after valid multi-hop prefixes;
 4. functional-key non-transferability across public update transitions;
-5. transition-path integrity against replay/rollback/skip/reorder/splice/fork or equivalent history attacks; and
-6. the same distinction between independent path replay and trust-explicit compact certification.
+5. security defined over already-updated ciphertexts as future update sources;
+6. path/lineage integrity against the relevant history attacks; and
+7. the same independent-replay versus trust-explicit checkpoint distinction.
 
-Finding prior work for any individual ingredient does not by itself establish novelty or destroy it; the manuscript must compare the exact security objects and assumptions rather than count features.
+Finding a known mechanism for any individual ingredient is neither a novelty proof nor a novelty refutation; the comparison must be made at the level of the complete security object and construction assumptions.
