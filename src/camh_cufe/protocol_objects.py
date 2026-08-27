@@ -5,6 +5,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Iterable
 
+from .domains import HISTORY_INIT, HISTORY_LINK
 from .encoding import Field, encode_object, uint32, uint64
 
 OBJ_STATE = 0x1001
@@ -29,6 +30,15 @@ def _nonempty(value: bytes, name: str) -> bytes:
     if not value:
         raise ValueError(f"{name} must be non-empty")
     return value
+
+
+def _domain_hash(domain: bytes, body: bytes) -> bytes:
+    """Hash a canonical object under an explicit semantic domain."""
+    h = hashlib.sha256()
+    h.update(len(domain).to_bytes(2, "big"))
+    h.update(domain)
+    h.update(body)
+    return h.digest()
 
 
 def encode_state(state: AuthorizationState, *, suite_id: bytes) -> bytes:
@@ -63,6 +73,8 @@ def encode_transition_statement(
 ) -> bytes:
     if destination.epoch != source.epoch + 1:
         raise ValueError("destination epoch must equal source epoch + 1")
+    if dimension <= 0:
+        raise ValueError("dimension must be positive")
     return encode_object(OBJ_TRANSITION, [
         Field(1, _nonempty(suite_id, "suite_id")),
         Field(2, encode_state(source, suite_id=suite_id)),
@@ -72,12 +84,23 @@ def encode_transition_statement(
     ])
 
 
-def history_init(*, suite_id: bytes, fresh_ciphertext: bytes) -> bytes:
+def history_init(
+    *,
+    suite_id: bytes,
+    initial_state: AuthorizationState,
+    fresh_ciphertext: bytes,
+) -> bytes:
+    """Commit to the exact accepted fresh root state and ciphertext.
+
+    Binding the authorization state explicitly prevents a byte-identical payload
+    from being re-labelled as a different root tag/epoch by the audit layer.
+    """
     body = encode_object(OBJ_HISTORY_INIT, [
         Field(1, _nonempty(suite_id, "suite_id")),
-        Field(2, _nonempty(fresh_ciphertext, "fresh_ciphertext")),
+        Field(2, encode_state(initial_state, suite_id=suite_id)),
+        Field(3, _nonempty(fresh_ciphertext, "fresh_ciphertext")),
     ])
-    return hashlib.sha256(body).digest()
+    return _domain_hash(HISTORY_INIT, body)
 
 
 def history_link(
@@ -100,7 +123,7 @@ def history_link(
         Field(5, _nonempty(destination_ciphertext, "destination_ciphertext")),
         Field(6, _nonempty(token_signature, "token_signature")),
     ])
-    return hashlib.sha256(body).digest()
+    return _domain_hash(HISTORY_LINK, body)
 
 
 def encode_checkpoint_statement(
