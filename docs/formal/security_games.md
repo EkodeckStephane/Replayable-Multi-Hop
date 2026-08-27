@@ -1,12 +1,12 @@
 # CAMH-CUFE Security Games and Proof Obligations
 
-> Status: design document. Names and exact oracle interfaces may change during proof development.
+> Status: security-definition work in progress. The baseline adversarial oracle interfaces, token-exposure profiles, branching policy, challenge admissibility rule, and public leakage profile are frozen in `oracle_and_leakage_profile.md`; construction-specific restrictions may narrow a theorem but must be stated explicitly.
 
 ## 1. Design principle
 
 Security must be defined over **state-transition histories**, not inferred from a finite list of implementation corruption tests. The adversarial tests are later derived from these games.
 
-The adversary may interact adaptively with key, token, encryption, update, and verification interfaces subject to the restrictions required by the confidentiality definition.
+The adversary may interact adaptively with key, token, encryption, update, verification, and checkpoint interfaces subject to the exact admissibility rule in `oracle_and_leakage_profile.md`.
 
 ### State-global transition semantics
 
@@ -15,6 +15,10 @@ Unless a different construction is explicitly defined, an update token authorize
 Ciphertext/lineage identity is introduced by the **audit-history layer** to prevent history splicing and false provenance claims. It must not be silently turned into a token restriction absent from the cryptographic construction.
 
 The use of a level/epoch coordinate is not itself a novelty claim: epoch-indexed transitions are standard in Updatable Encryption. CAMH-CUFE uses the product state `(tag, level)` to control composition of **tag-changing CUFE permissions**.
+
+### Branching/cycle policy
+
+The baseline global authorization graph may branch and reconverge. Every edge advances the level by exactly one, so cycles are structurally excluded. Each retained history is linear; if a ciphertext is copied and two outgoing edges are exercised, the retained branches have distinct lineage/history commitments even if they later reconverge to the same cryptographic authorization state.
 
 ## 2. Correctness properties
 
@@ -120,7 +124,7 @@ This is an **audit/provenance** property. It remains meaningful even though the 
 
 Goal: create conflicting accepted descendants from a context in which policy requires a unique evolution path, or make a verifier accept incompatible histories as one linear history.
 
-If branching is legitimate, the game must instead enforce explicit branch identities and prevent implicit history equivalence.
+The baseline authorization graph permits authorized branching. Therefore the audit game does not forbid two valid descendants from one root; it requires explicit branch/lineage separation and prevents two distinct branch histories from being accepted as one linear history or as the same history commitment without breaking the binding assumption.
 
 ### G-HistoryBinding: history-commitment binding
 
@@ -158,27 +162,36 @@ Any concrete construction that fails this game is disqualified from supporting C
 
 ### G-MH-Confidentiality
 
-Target: define an indistinguishability game extending the underlying CUFE confidentiality model to adaptive multi-hop paths.
+The baseline indistinguishability experiment is specified in `oracle_and_leakage_profile.md` and has two explicitly different token-exposure profiles:
 
-The adversary may request update tokens and/or honest update operations on allowed exact states. Restrictions must prevent trivial recovery of the challenge function value while still exposing the update behavior required by the deployment model.
+- `MH-PUB`: successful token queries reveal concrete update material and the adversary may combine/execute it arbitrarily;
+- `MH-HU`: challenge updates are mediated by an honest-update oracle and secret update material is not exposed.
 
-Open questions before theorem statement:
+For a paper/system in which update tokens are distributed to untrusted proxies, `MH-PUB` is the required headline security target.
 
-1. May the challenge ciphertext follow multiple honest paths?
-2. Are tokens touching the challenge path revealed, or only exposed through an honest-update oracle?
-3. Are forks allowed for challenge ciphertexts?
-4. What leakage is inherent in public tags, levels, path length, and history commitments?
-5. Does checkpoint issuance reveal only already-public state, or additional audit metadata?
-6. Which combinations of source-state keys, target-state keys, corrupted tokens, and honest tokens are valid without trivializing the challenge?
-7. How is exact composition reachability represented in the validity predicate of the adversary?
+The challenge starts from a fresh ciphertext at `(t*,0)`. The adversary may copy and evolve challenge-derived ciphertexts along exact issued state edges, so the challenge-derived structure may branch even though each retained history is linear.
+
+Let `D*` denote every exact state at which the adversary obtains a challenge-derived ciphertext during the full adaptive experiment. The final transcript is admissible only if every queried functional key `(f,Q)` with `Q in D*` satisfies
+
+```text
+f(x0) = f(x1).
+```
+
+A key query at another state is not excluded merely because public transition material touches a challenge state. This is deliberate: if a token plus such a key can synthesize forbidden challenge-state capability, the construction should lose the game rather than have the attack removed by an oracle restriction.
+
+The public leakage baseline includes tags, levels, transition descriptions, path/history length when disclosed, history commitments, wire lengths, checkpoint policy metadata, and deployment metadata explicitly enumerated in `oracle_and_leakage_profile.md`.
+
+A construction theorem must additionally quantify the maximum depth, query bounds, challenge/tag adaptivity, corruption model, construction-specific leakage, and reduction loss.
 
 ### G-SequentialComposition
 
-For any adaptively selected valid accepted prefix `P_i`, the security of the next **explicitly authorized exact-state transition** must hold in the environment containing the adversary's complete view of `P_i`.
+For any adaptively selected valid challenge-derived prefix `P_i`, the security of the next **explicitly authorized exact-state transition** must hold in the environment containing the adversary's complete view of `P_i`.
 
 A proof must explain why security does not silently rely on the current ciphertext being a fresh encryption.
 
 Sequential composition is not established merely by functional correctness after several updates. It requires that the accumulated adversarial view creates neither an unauthorized path edge nor a new forbidden functional capability, including key switching.
+
+The property is evaluated under the same `MH-PUB` or `MH-HU` profile claimed by the construction. A proof for the token-hidden profile cannot be relabeled as public-token composability.
 
 `G-CompositionAuthorization` and `G-SequentialComposition` are distinct:
 
